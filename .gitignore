@@ -1,16 +1,51 @@
+# Virtual Environment
 venv/
 .env
 
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 
+# Streamlit
 .streamlit/
 
-.idea/
+# IDEs
 .vscode/
+.idea/
 
-*.db
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Vector Database / AI Files
 *.faiss
 *.pkl
+*.db
 
-.DS_Store
+# Logs
+*.log
+
+# Temporary Files
+*.tmp
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Build / Distribution
+build/
+dist/
+*.egg-info/
+
+# Pytest
+.pytest_cache/
+
+# MyPy
+.mypy_cache/
+
+# Ruff
+.ruff_cache/
+
+# Coverage
+.coverage
+htmlcov/

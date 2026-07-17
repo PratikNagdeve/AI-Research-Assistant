@@ -1,14 +1,3 @@
-import os
-from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
+from utils.chatbot import invoke_llm
 
-load_dotenv()
-
-llm = ChatGoogleGenerativeAI(
-    model="gemini-flash-latest",
-    google_api_key=os.getenv("GOOGLE_API_KEY"),
-    temperature=0,
-)
-
-response = llm.invoke("Say hello")
-print(response.content)
+print(invoke_llm("Hello"))

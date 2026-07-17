@@ -1,4 +1,4 @@
-from utils.chatbot import get_llm
+from utils.chatbot import invoke_llm
 
 
 def answer_question(vectorstore, query):
@@ -8,28 +8,34 @@ def answer_question(vectorstore, query):
     context = ""
 
     for doc in docs:
-        context += doc.page_content + "\n\n"
+        context += f"""
+Source: {doc.metadata['source']}
+Page: {doc.metadata['page']}
+
+{doc.page_content}
+
+----------------------------------------
+"""
 
     prompt = f"""
 You are an AI Research Assistant.
 
-Answer ONLY using the context below.
+Answer ONLY using the provided context.
 
-If the answer is not present in the context, say:
+If the answer cannot be found in the context, reply exactly:
+
 "I could not find the answer in the uploaded papers."
 
+Write the answer in a clear, concise, and professional manner.
+
 Context:
----------
+--------------------
 {context}
 
 Question:
 {query}
-
-Provide a clear and concise answer.
 """
 
-    llm = get_llm()
+    answer = invoke_llm(prompt)
 
-    response = llm.invoke(prompt)
-
-    return response.content, docs
+    return answer, docs

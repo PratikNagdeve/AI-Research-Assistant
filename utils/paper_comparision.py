@@ -1,136 +1,130 @@
 from collections import defaultdict
 
-from utils.chatbot import get_llm
+from utils.chatbot import invoke_llm
 
 
 def compare_papers(chunks):
     """
-    Compare all uploaded research papers.
-    Uses hierarchical summarization:
-    1. Group chunks by paper
-    2. Create one summary per paper
-    3. Compare summaries
+    Compare uploaded research papers while keeping
+    the prompt size small enough for Gemini Flash.
     """
 
-    llm = get_llm()
-
-    # --------------------------------------------------
+    # ----------------------------------------
     # Group chunks by paper
-    # --------------------------------------------------
+    # ----------------------------------------
 
     papers = defaultdict(list)
 
     for chunk in chunks:
-        papers[chunk["source"]].append(chunk["text"])
+        papers[chunk["source"]].append(chunk)
 
-    # --------------------------------------------------
-    # Summarize each paper
-    # --------------------------------------------------
+    # ----------------------------------------
+    # Build context
+    # ----------------------------------------
 
-    paper_summaries = []
+    context = ""
 
-    for paper_name, paper_chunks in papers.items():
+    MAX_CHUNKS_PER_PAPER = 4
+    MAX_CONTEXT_LENGTH = 25000
 
-        paper_text = "\n\n".join(paper_chunks[:15])  # Prevent huge prompts
+    for i, (paper_name, paper_chunks) in enumerate(papers.items(), start=1):
 
-        summary_prompt = f"""
-You are an expert research scientist.
+        context += f"\n===============================\n"
+        context += f"Paper {i}: {paper_name}\n"
+        context += f"===============================\n\n"
 
-Read the research paper below and produce a concise structured summary.
+        for chunk in paper_chunks[:MAX_CHUNKS_PER_PAPER]:
 
-Paper:
-{paper_name}
+            context += f"""
+Page: {chunk['page']}
 
-Content:
-----------------------
-{paper_text}
+{chunk['text']}
 
-Return ONLY the following sections.
-
-## Research Problem
-
-## Objective
-
-## Methodology
-
-## Dataset
-
-## Model / Algorithm
-
-## Results
-
-## Strengths
-
-## Limitations
-
-## Future Work
+----------------------------------------
 """
 
-        summary = llm.invoke(summary_prompt).content
+            if len(context) >= MAX_CONTEXT_LENGTH:
+                break
 
-        paper_summaries.append(
-            f"""
-=========================
-Paper: {paper_name}
-=========================
+        if len(context) >= MAX_CONTEXT_LENGTH:
+            break
 
-{summary}
-"""
-        )
+    print(f"Comparison Prompt Length: {len(context)} characters")
 
-    # --------------------------------------------------
-    # Final Comparison
-    # --------------------------------------------------
+    # ----------------------------------------
+    # Dynamic table
+    # ----------------------------------------
 
-    combined_summary = "\n\n".join(paper_summaries)
+    num_papers = len(papers)
+
+    headers = " | ".join(
+        [f"Paper {i}" for i in range(1, num_papers + 1)]
+    )
+
+    separator = " | ".join(["---"] * num_papers)
+
+    # ----------------------------------------
+    # Prompt
+    # ----------------------------------------
 
     comparison_prompt = f"""
 You are an experienced AI researcher.
 
-You have been provided summaries of multiple research papers.
+Compare the following research papers.
 
-Compare them professionally.
+Rules:
 
-Paper Summaries
---------------------
-{combined_summary}
+- Use ONLY the provided context.
+- Do NOT invent information.
+- If an aspect is missing, write "Not Mentioned".
+- Keep each table cell concise (1-2 sentences).
+- After the table, provide an analytical comparison.
 
-Generate the comparison using the following format.
+Research Papers
+---------------
+
+{context}
+
+Generate the response using exactly this structure.
 
 # 📊 Comparison Table
 
-| Aspect | Paper 1 | Paper 2 | Paper 3 |
-|--------|---------|---------|---------|
-| Research Problem | | | |
-| Objective | | | |
-| Methodology | | | |
-| Dataset | | | |
-| Model | | | |
-| Results | | | |
-| Strengths | | | |
-| Limitations | | | |
+| Aspect | {headers} |
+|--------|{separator}| 
+| Research Problem | |
+| Objective | |
+| Methodology | |
+| Dataset | |
+| Model / Algorithm | |
+| Results | |
+| Strengths | |
+| Limitations | |
 
 # 🔍 Comparative Analysis
 
-Discuss similarities and differences.
+Discuss:
+- Similarities
+- Differences
+- Strengths of each approach
+- Weaknesses of each approach
 
 # 💡 Key Insights
 
-Mention important observations.
+Provide the major observations.
 
 # 🚀 Research Gaps
 
-Identify gaps across all papers.
+Identify common research gaps.
 
 # 📈 Future Research Directions
 
-Suggest future work.
+Suggest future research opportunities.
 
 # ✅ Conclusion
 
-Summarize the overall comparison.
+Provide a concise conclusion.
 """
 
-    comparison = llm.invoke(comparison_prompt)
+    comparison = invoke_llm(comparison_prompt)
 
-    return comparison.content
+    return comparison

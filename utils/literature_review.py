@@ -1,14 +1,39 @@
-from utils.chatbot import get_llm
+from collections import defaultdict
+
+from utils.chatbot import invoke_llm
 
 
 def generate_literature_review(chunks):
+    """
+    Generate a literature review from multiple papers while
+    keeping the prompt size manageable for Gemini Flash.
+    """
+
+    # -------------------------------
+    # Group chunks by paper
+    # -------------------------------
+
+    papers = defaultdict(list)
+
+    for chunk in chunks:
+        papers[chunk["source"]].append(chunk)
+
+    # -------------------------------
+    # Build context
+    # -------------------------------
 
     context = ""
 
-    for chunk in chunks:
+    MAX_CHUNKS_PER_PAPER = 5
+    MAX_CONTEXT_LENGTH = 25000
 
-        context += f"""
-Paper: {chunk['source']}
+    for paper_name, paper_chunks in papers.items():
+
+        context += f"\n========== {paper_name} ==========\n\n"
+
+        for chunk in paper_chunks[:MAX_CHUNKS_PER_PAPER]:
+
+            context += f"""
 Page: {chunk['page']}
 
 {chunk['text']}
@@ -16,64 +41,58 @@ Page: {chunk['page']}
 ------------------------------------------
 """
 
+            if len(context) >= MAX_CONTEXT_LENGTH:
+                break
+
+        if len(context) >= MAX_CONTEXT_LENGTH:
+            break
+
+    print(f"Literature Review Prompt Length: {len(context)} characters")
+
+    # -------------------------------
+    # Prompt
+    # -------------------------------
+
     prompt = f"""
 You are an expert research assistant and academic writer.
 
-You have been provided with content extracted from one or more research papers.
+You have been provided with excerpts from one or more research papers.
 
-Your task is to generate a professional literature review.
+Generate a professional literature review.
 
-Use ONLY the provided context.
+Rules:
+- Use ONLY the provided context.
+- Do NOT invent information.
+- If information is unavailable, simply omit it.
+- Synthesize ideas across papers instead of describing papers one by one.
+- Write in an academic style.
 
-Do NOT invent information.
-
-If multiple papers discuss similar ideas, synthesize them together instead of describing each paper separately.
-
-Write the literature review using the following structure.
+Structure your response as follows:
 
 # Introduction
 
-Briefly introduce the research area.
-
 # Research Objectives
-
-Summarize the objectives addressed by the papers.
 
 # Methodologies
 
-Discuss the methodologies and techniques used.
-
 # Datasets
-
-Describe the datasets used, if mentioned.
 
 # Key Findings
 
-Summarize the important findings.
-
 # Limitations
-
-Mention the limitations discussed.
 
 # Research Gaps
 
-Identify gaps that remain unsolved.
-
 # Future Directions
-
-Summarize future research suggested by the papers.
 
 # Conclusion
 
-Provide a concise conclusion.
-
-Context:
+Context
+-------
 
 {context}
 """
 
-    llm = get_llm()
+    literature_review = invoke_llm(prompt)
 
-    response = llm.invoke(prompt)
-
-    return response.content
+    return literature_review
